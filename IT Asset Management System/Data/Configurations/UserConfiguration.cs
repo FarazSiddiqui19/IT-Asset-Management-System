@@ -34,6 +34,10 @@ namespace IT_Asset_Management_System.Data.Configurations
 
             builder.Property(u => u.CreatedAt)
                 .IsRequired();
+            
+            builder.Property(u => u.IsActive)
+                .IsRequired()
+                .HasDefaultValue(true);
         
             // Navigation properties
             builder.HasMany(u => u.AssignmentRequests)

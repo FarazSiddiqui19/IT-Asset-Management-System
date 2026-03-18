@@ -21,6 +21,7 @@ namespace IT_Asset_Management_System.Common.Extensions
             services.AddScoped<IAssignmentRepository, AssignmentRepository>();
             services.AddScoped<ITicketRepository, TicketRepository>();
             services.AddScoped<ICommentRepository, CommentRepository>();
+            services.AddScoped<IUnitOfWork, UnitOfWork>();
 
             return services;
         }
@@ -92,6 +93,7 @@ namespace IT_Asset_Management_System.Common.Extensions
             services.AddScoped<ITicketService, TicketService>();
             services.AddScoped<ICommentService, CommentService>();
             services.AddScoped<IAssetService, AssetService>();
+        
             return services;
         }
 

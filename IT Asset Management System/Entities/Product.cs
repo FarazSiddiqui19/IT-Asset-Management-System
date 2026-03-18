@@ -9,6 +9,8 @@ namespace IT_Asset_Management_System.Entities
         public required string Description { get; set; } 
         public Guid CategoryId { get; set; }
 
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
 
         // Navigation properties
         public virtual Category Category { get; set; } = null!; // Required navigation property

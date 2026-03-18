@@ -10,6 +10,6 @@ namespace IT_Asset_Management_System.Repository.Interfaces
     public interface ICommentRepository : IRepository<Comment>
     {
         Task<CommentDto?> GetByIdWithDetailsAsync(Guid id);
-        Task<List<CommentDto>> GetAllAsync(CommentFilter filter);
+        Task<PagedResult<CommentDto>> GetAllAsync(CommentFilter filter);
     }
 }

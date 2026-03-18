@@ -3,7 +3,6 @@ using IT_Asset_Management_System.Common.Mappers;
 using IT_Asset_Management_System.Data;
 using IT_Asset_Management_System.DTOs.Asset;
 using IT_Asset_Management_System.Entities;
-using IT_Asset_Management_System.Entities.Enums;
 using IT_Asset_Management_System.Enums;
 using IT_Asset_Management_System.Repository.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -72,8 +71,8 @@ namespace IT_Asset_Management_System.Repository
 
         public async Task<bool> HasAssignmentsAsync(Guid assetId)
         {
-            // Only consider active assignments as blocking deletion
-            return await _context.Assignments.AnyAsync(a => a.AssetId == assetId && a.Status == AssignmentStatus.Active);
+          
+            return await _context.Assignments.AnyAsync(a => a.AssetId == assetId );
         }
     }
 }

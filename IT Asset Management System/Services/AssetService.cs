@@ -1,11 +1,10 @@
-using IT_Asset_Management_System.Services.Interfaces;
-using IT_Asset_Management_System.Repository.Interfaces;
-using IT_Asset_Management_System.DTOs.Asset;
-using IT_Asset_Management_System.Entities;
 using IT_Asset_Management_System.Common;
 using IT_Asset_Management_System.Common.Exceptions;
+using IT_Asset_Management_System.Common.Mappers;
+using IT_Asset_Management_System.DTOs.Asset;
 using IT_Asset_Management_System.Entities.Enums;
-using System.Linq.Expressions;
+using IT_Asset_Management_System.Repository.Interfaces;
+using IT_Asset_Management_System.Services.Interfaces;
 
 namespace IT_Asset_Management_System.Services
 {
@@ -13,11 +12,13 @@ namespace IT_Asset_Management_System.Services
     {
         private readonly IAssetRepository _assetRepository;
         private readonly IProductRepository _productRepository;
+        private readonly IUnitOfWork _unitOfWork;
 
-        public AssetService(IAssetRepository assetRepository, IProductRepository productRepository)
+        public AssetService(IAssetRepository assetRepository, IProductRepository productRepository, IUnitOfWork unitOfWork)
         {
             _assetRepository = assetRepository;
             _productRepository = productRepository;
+            _unitOfWork = unitOfWork;
         }
 
         public async Task<AssetDto> AddAsync(CreateAssetDto dto)
@@ -30,18 +31,18 @@ namespace IT_Asset_Management_System.Services
             if (existing != null)
                 throw new ConflictException("Asset with this tag already exists.");
 
-            var asset = new Asset
-            {
-                AssetTag = dto.AssetTag,
-                PurchaseDate = dto.PurchaseDate,
-                ProductId = dto.ProductId,
-                Status = AssetStatus.Available
-            };
+            var asset = dto.ToEntity();
 
             await _assetRepository.AddAsync(asset);
+            if (!await _unitOfWork.SaveChangesAsync())
+                throw new InternalServerException("Failed to complete the operation. Please try again.");
 
-            var full = await _assetRepository.GetByIdWithDetailsAsync(asset.Id);
-            return full!;
+            var Added = await _assetRepository.GetByIdWithDetailsAsync(asset.Id);
+
+            if (Added == null)
+                throw new InternalServerException("Failed to retrieve the added asset. Please try again.");
+
+            return Added;
         }
 
         public async Task<AssetDto> GetByIdAsync(Guid id)
@@ -57,11 +58,28 @@ namespace IT_Asset_Management_System.Services
             return await _assetRepository.GetAllAsync(filter);
         }
 
-        private Dictionary<AssetStatus, List<AssetStatus>> allowedTransitions = new Dictionary<AssetStatus, List<AssetStatus>>
+        //private Dictionary<AssetStatus, List<AssetStatus>> allowedTransitions = new Dictionary<AssetStatus, List<AssetStatus>>
+        //{
+        //    { AssetStatus.Available, new List<AssetStatus> {  AssetStatus.UnderMaintenance, AssetStatus.Retired } },
+        //    { AssetStatus.UnderMaintenance, new List<AssetStatus> { AssetStatus.Available, AssetStatus.Retired } }
+        //};
+
+        private bool IsValidTransition(AssetStatus current, AssetStatus next)
         {
-            { AssetStatus.Available, new List<AssetStatus> {  AssetStatus.UnderMaintenance, AssetStatus.Retired } },
-            { AssetStatus.UnderMaintenance, new List<AssetStatus> { AssetStatus.Available, AssetStatus.Retired } }
-        };
+            switch (current)
+            {
+                case AssetStatus.Available:
+                    return next == AssetStatus.UnderMaintenance
+                        || next == AssetStatus.Retired;
+
+                case AssetStatus.UnderMaintenance:
+                    return next == AssetStatus.Available
+                        || next == AssetStatus.Retired;
+
+                default:
+                    return false;
+            }
+        }
 
         public async Task UpdateAsync(Guid id, UpdateAssetDto dto)
         {
@@ -70,13 +88,23 @@ namespace IT_Asset_Management_System.Services
             if (asset == null)
                 throw new NotFoundException("Asset not found.");
 
-            if(!allowedTransitions.ContainsKey(asset.Status) || !allowedTransitions[asset.Status].Contains(dto.Status))
-                throw new ValidationException($"Invalid status transition from {asset.Status} to {dto.Status}.");
-       
+           
 
-            var ok = await _assetRepository.UpdateAsync(asset);
-            if (!ok)
-                throw new ValidationException("Failed to update asset.");
+            //if(!allowedTransitions.ContainsKey(asset.Status) || !allowedTransitions[asset.Status].Contains(dto.Status))
+            //    throw new ValidationException($"Invalid status transition from {asset.Status} to {dto.Status}.");
+
+            if (!IsValidTransition(asset.Status, dto.Status))
+            {
+                throw new ValidationException(
+                    $"Invalid status transition from {asset.Status} to {dto.Status}.");
+            }
+
+            asset.Status = dto.Status;
+
+
+            await _assetRepository.UpdateAsync(asset);
+            if (!await _unitOfWork.SaveChangesAsync())
+                throw new InternalServerException("Failed to complete the operation. Please try again.");
         }
 
         public async Task DeleteAsync(Guid id)
@@ -92,9 +120,9 @@ namespace IT_Asset_Management_System.Services
             if (hasAssignments)
                 throw new ValidationException("Asset cannot be deleted because assignment history exists.");
 
-            var ok = await _assetRepository.DeleteAsync(asset);
-            if (!ok)
-                throw new ValidationException("Failed to delete asset.");
+            await _assetRepository.DeleteAsync(asset);
+            if (!await _unitOfWork.SaveChangesAsync())
+                throw new InternalServerException("Failed to complete the operation. Please try again.");
         }
     }
 }

@@ -9,6 +9,8 @@ using IT_Asset_Management_System.Entities;
 using IT_Asset_Management_System.Entities.Enums;
 using Microsoft.IdentityModel.Tokens;
 using System.Diagnostics.Eventing.Reader;
+using IT_Asset_Management_System.Common;
+using IT_Asset_Management_System.Common.Mappers;
 
 namespace IT_Asset_Management_System.Services
 {
@@ -18,22 +20,24 @@ namespace IT_Asset_Management_System.Services
         private readonly ITicketRepository _ticketRepository;
         private readonly IAssignmentRequestRepository _assignmentRequestRepository;
         private readonly IUserRepository _userRepository;
-        
+        private readonly IUnitOfWork _unitOfWork;
 
         public CommentService(ICommentRepository commentRepository, ITicketRepository ticketRepository, 
-                                          IAssignmentRequestRepository assignmentRequestRepository,IUserRepository userRepository)
+                                          IAssignmentRequestRepository assignmentRequestRepository, 
+                                          IUserRepository userRepository, IUnitOfWork unitOfWork)
         {
             _commentRepository = commentRepository;
             _ticketRepository = ticketRepository;
             _assignmentRequestRepository = assignmentRequestRepository;
             _userRepository = userRepository;
+            _unitOfWork = unitOfWork;
         }
 
 
         public async Task<CommentDto> AddAsync(CreateCommentDto dto)
         {
             var user = await _userRepository.GetByIdAsync(dto.UserId)
-                ?? throw new NotFoundException("User not found.");
+                if(user == null) throw new NotFoundException("User not found.");
 
             var isAdmin = user.Role == UserRole.Admin;
             Comment comment;
@@ -44,17 +48,11 @@ namespace IT_Asset_Management_System.Services
                     throw new ValidationException("TicketId must be provided for ticket comments.");
 
                 var ticket = await _ticketRepository.GetByIdAsync(dto.TicketId.Value)
-                    ?? throw new NotFoundException("Ticket not found.");
+                if(ticket == null) throw new NotFoundException("Ticket not found.");
 
                 AuthorizeTicketComment(user, ticket, isAdmin);
 
-                comment = new Comment
-                {
-                    UserId = dto.UserId,
-                    TicketId = dto.TicketId,
-                    Type = CommentType.Ticket,
-                    Content = dto.Content
-                };
+                comment = dto.ToEntity();
             }
             else if (dto.CommentType == CommentType.AssignmentRequest)
             {
@@ -62,17 +60,11 @@ namespace IT_Asset_Management_System.Services
                     throw new ValidationException("AssignmentRequestId must be provided for assignment request comments.");
 
                 var request = await _assignmentRequestRepository.GetByIdAsync(dto.AssignmentRequestId.Value)
-                    ?? throw new NotFoundException("Assignment request not found.");
+                if(request == null) throw new NotFoundException("Assignment request not found.");
 
                 AuthorizeRequestComment(user, request, isAdmin);
 
-                comment = new Comment
-                {
-                    UserId = dto.UserId,
-                    AssignmentRequestId = dto.AssignmentRequestId,  
-                    Type = CommentType.AssignmentRequest,          
-                    Content = dto.Content
-                };
+                comment = dto.ToEntity();
             }
             else
             {
@@ -80,7 +72,16 @@ namespace IT_Asset_Management_System.Services
             }
 
             await _commentRepository.AddAsync(comment);
-            return (await _commentRepository.GetByIdWithDetailsAsync(comment.Id))!;
+            if (!await _unitOfWork.SaveChangesAsync())
+                throw new InternalServerException("Failed to complete the operation. Please try again.");
+
+            var Added = await _commentRepository.GetByIdWithDetailsAsync(comment.Id) 
+                
+                if(Added == null)
+                            throw new InternalServerException("Failed to retrieve the added comment. Please try again.");
+           
+
+            return Added;   
         }
 
         private void AuthorizeTicketComment(User user, Ticket ticket, bool isAdmin)
@@ -129,7 +130,7 @@ namespace IT_Asset_Management_System.Services
         }
 
 
-        public async Task<List<CommentDto>> GetAllAsync(CommentFilter filter)
+        public async Task<PagedResult<CommentDto>> GetAllAsync(CommentFilter filter)
         {
             if (!filter.TicketId.HasValue && !filter.AssignmentRequestId.HasValue)
                 throw new ValidationException("Either TicketId or AssignmentRequestId must be provided.");
@@ -169,8 +170,9 @@ namespace IT_Asset_Management_System.Services
 
             comment.Content = dto.Content;
 
-            var ok = await _commentRepository.UpdateAsync(comment);
-            if (!ok) throw new ValidationException("Failed to update comment.");
+            await _commentRepository.UpdateAsync(comment);
+            if (!await _unitOfWork.SaveChangesAsync())
+                throw new InternalServerException("Failed to complete the operation. Please try again.");
         }
 
         public async Task DeleteAsync(Guid id, Guid requestingUserId)
@@ -181,8 +183,9 @@ namespace IT_Asset_Management_System.Services
             if (comment.UserId != requestingUserId)
                 throw new ForbiddenException("You can only delete your own comments.");
 
-            var ok = await _commentRepository.DeleteAsync(comment);
-            if (!ok) throw new ValidationException("Failed to delete comment.");
+            await _commentRepository.DeleteAsync(comment);
+            if (!await _unitOfWork.SaveChangesAsync())
+                throw new InternalServerException("Failed to complete the operation. Please try again.");
         }
     }
 }

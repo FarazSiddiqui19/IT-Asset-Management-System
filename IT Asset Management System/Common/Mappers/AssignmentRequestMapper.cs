@@ -26,5 +26,17 @@ namespace IT_Asset_Management_System.Common.Mappers
                 Description = assignmentRequest.Description
             };
         }
+
+        public static AssignmentRequest ToEntity(this CreateAssignmentRequestDto dto)
+        {
+            if (dto == null) throw new ArgumentNullException(nameof(dto));
+            return new AssignmentRequest
+            {
+                UserId = dto.UserId,
+                CategoryId = dto.CategoryId,
+                Description = dto.Description,
+                Status = Entities.Enums.RequestStatus.Pending
+            };
+        }
     }
 }

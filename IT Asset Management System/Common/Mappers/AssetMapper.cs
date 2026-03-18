@@ -25,5 +25,18 @@ namespace IT_Asset_Management_System.Common.Mappers
                 Status = asset.Status
             };
         }
+
+
+        public static Asset ToEntity(this CreateAssetDto dto)
+        {
+            if (dto == null) throw new ArgumentNullException(nameof(dto));
+            return new Asset
+            {
+                AssetTag = dto.AssetTag,
+                ProductId = dto.ProductId,
+                PurchaseDate = dto.PurchaseDate,
+                Status = Entities.Enums.AssetStatus.Available
+            };
+        }
     }
 }

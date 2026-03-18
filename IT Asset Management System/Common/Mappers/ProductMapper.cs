@@ -11,7 +11,6 @@ namespace IT_Asset_Management_System.Common.Mappers
         {
             if(p == null) throw new InvalidOperationException("Product cannot be null when mapping to ProductDto.");
 
-            if(p.Assets == null) throw new InvalidOperationException("Product's Assets collection cannot be null when mapping to ProductDto.");
 
             if(p.Category == null) throw new InvalidOperationException("Product's Category cannot be null when mapping to ProductDto.");
 

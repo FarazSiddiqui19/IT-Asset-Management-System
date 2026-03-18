@@ -31,6 +31,9 @@ namespace IT_Asset_Management_System.Services
             var user = await _userRepository.GetByEmailAsync(dto.Email);
             if (user == null) throw new NotFoundException("User does not exist");
 
+            if (!user.IsActive)
+                throw new UnauthorizedException("Your account has been deactivated.");
+
             if (!_passwordHasher.Verify(dto.Password, user.PasswordHash)) throw new UnauthorizedException("Invalid Password");
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.SecretKey));
@@ -62,6 +65,7 @@ namespace IT_Asset_Management_System.Services
                 Username = user.Username,
                 UserId = user.Id,
                 Role = user.Role,
+                IsActive = user.IsActive,
                 ExpiresAt = expiresAt
             };
         }

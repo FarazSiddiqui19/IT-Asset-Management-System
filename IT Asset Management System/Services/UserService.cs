@@ -1,12 +1,8 @@
-using System.Threading.Tasks;
-using IT_Asset_Management_System.Services.Interfaces;
-using IT_Asset_Management_System.Services;
-using IT_Asset_Management_System.Repository.Interfaces;
-using IT_Asset_Management_System.Entities;
-using IT_Asset_Management_System.DTOs.User;
 using IT_Asset_Management_System.Common.Exceptions;
 using IT_Asset_Management_System.Common.Mappers;
-using System;
+using IT_Asset_Management_System.DTOs.User;
+using IT_Asset_Management_System.Repository.Interfaces;
+using IT_Asset_Management_System.Services.Interfaces;
 
 namespace IT_Asset_Management_System.Services
 {
@@ -15,13 +11,15 @@ namespace IT_Asset_Management_System.Services
         private readonly IUserRepository _userRepository;
         private readonly IPasswordHasher _passwordHasher;
         private readonly IAssignmentRepository _assignmentRepository;
+        private readonly IUnitOfWork _unitOfWork;
 
 
-        public UserService(IUserRepository userRepository, IPasswordHasher passwordHasher,IAssignmentRepository assignmentRepository)
+        public UserService(IUserRepository userRepository, IPasswordHasher passwordHasher, IAssignmentRepository assignmentRepository, IUnitOfWork unitOfWork)
         {
             _userRepository = userRepository;
             _passwordHasher = passwordHasher;
             _assignmentRepository = assignmentRepository;
+            _unitOfWork = unitOfWork;
         }
 
         public async Task<UserDto> AddUserAsync(CreateUserDto dto)
@@ -37,8 +35,15 @@ namespace IT_Asset_Management_System.Services
             var user = dto.ToEntity(hashedPassword);
 
 
-            var added = await _userRepository.AddAsync(user);
-            return added.ToDto();
+            await _userRepository.AddAsync(user);
+            if (!await _unitOfWork.SaveChangesAsync())
+                throw new InternalServerException("Failed to complete the operation. Please try again.");
+
+            var Added = await _userRepository.GetByIdAsync(user.Id)??
+                throw new InternalServerException("Failed to retrieve the created user. Please try again.");
+
+
+            return Added.ToDto();
         }
 
         public async Task<UserDto> GetByIdAsync(Guid id)
@@ -65,26 +70,28 @@ namespace IT_Asset_Management_System.Services
                 user.PasswordHash = _passwordHasher.Hash(dto.Password);
             }
            
-      
-
-            var ok = await _userRepository.UpdateAsync(user);
-            if (!ok) throw new ValidationException("Failed to update user.");
+            await _userRepository.UpdateAsync(user);
+            if (!await _unitOfWork.SaveChangesAsync())
+                throw new InternalServerException("Failed to complete the operation. Please try again.");
         }
 
-        public async Task DeleteAsync(Guid id)
+        public async Task DeactivateAsync(Guid id)
         {
             var user = await _userRepository.GetByIdAsync(id);
             if (user == null) throw new NotFoundException("User not found.");
 
+            if (!user.IsActive) throw new ValidationException("User is already deactivated.");
+
             if (await _userRepository.HasActiveAssignmentsAsync(id))
-                throw new ValidationException("User cannot be deleted because they have active assignments.");
+                throw new ValidationException("User cannot be deactivated because they have active assignments.");
 
-            if(await _userRepository.HasTicketsAsync(id))
-                throw new ValidationException("User cannot be deleted because they have In progress tickets.");
+            if (await _userRepository.HasInProgressTicketsAsync(id))
+                throw new ValidationException("User cannot be deactivated because they have in progress tickets.");
 
-
-            var okDel = await _userRepository.DeleteAsync(user);
-            if (!okDel) throw new ValidationException("Failed to delete user.");
+            user.IsActive = false;
+            await _userRepository.UpdateAsync(user);
+            if (!await _unitOfWork.SaveChangesAsync())
+                throw new InternalServerException("Failed to complete the operation. Please try again.");
         }
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using IT_Asset_Management_System.Entities;
 using IT_Asset_Management_System.DTOs.Assignment;
+using IT_Asset_Management_System.Entities.Enums;
 
 namespace IT_Asset_Management_System.Common.Mappers
 {
@@ -30,6 +31,18 @@ namespace IT_Asset_Management_System.Common.Mappers
                 Username = assignment.Request.User.Username,
                 AssignedDate = assignment.AssignedDate,
                 ReturnDate = assignment.ReturnDate
+            };
+        }
+
+        public static Assignment ToEntity(this CreateAssignmentDto dto)
+        {
+            if (dto == null) throw new ArgumentNullException(nameof(dto));
+            return new Assignment
+            {
+                RequestId = dto.RequestId,
+                AssetId = dto.AssetId,
+                Status = AssignmentStatus.Active,
+                AssignedDate = DateTime.UtcNow
             };
         }
     }

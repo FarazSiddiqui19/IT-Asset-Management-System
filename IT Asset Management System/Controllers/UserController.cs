@@ -73,17 +73,14 @@ namespace IT_Asset_Management_System.Controllers
             return Ok();
         }
 
-        [HttpDelete("{id}")]
-        
-        public async Task<IActionResult> Delete(Guid id)
+        [HttpPatch("{id}/deactivate")]
+        [Authorize]
+        public async Task<IActionResult> Deactivate(Guid id)
         {
-
-            if (GetRequestingUserId() != id)
-            {
+            if (!User.IsInRole("Admin") && id != GetRequestingUserId())
                 return Forbid();
-            }
 
-            await _userService.DeleteAsync(id);
+            await _userService.DeactivateAsync(id);
             return NoContent();
         }
 

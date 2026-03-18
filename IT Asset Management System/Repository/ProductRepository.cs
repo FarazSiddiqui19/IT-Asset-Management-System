@@ -37,7 +37,7 @@ namespace IT_Asset_Management_System.Repository
                     query = asc ? query.OrderBy(p => p.Name) : query.OrderByDescending(p => p.Name);
                     break;
                 default:
-                    query = asc ? query.OrderBy(p => p.Name) : query.OrderByDescending(p => p.Name);
+                    query = asc ? query.OrderBy(p => p.CreatedAt) : query.OrderByDescending(p => p.CreatedAt);
                     break;
             }
 

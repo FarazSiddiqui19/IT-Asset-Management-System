@@ -66,10 +66,6 @@ namespace IT_Asset_Management_System.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(Guid id)
         {
-            var assignment = await _assignmentService.GetByIdAsync(id);
-            if (assignment.UserId != GetRequestingUserId())
-                return Forbid();
-
             await _assignmentService.DeleteAsync(id);
             return NoContent();
         }

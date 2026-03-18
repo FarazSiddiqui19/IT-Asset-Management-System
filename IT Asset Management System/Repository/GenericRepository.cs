@@ -19,35 +19,24 @@ namespace IT_Asset_Management_System.Repository
 
         public virtual async Task<T> AddAsync(T entity)
         {
-            
-                await _dbSet.AddAsync(entity);
-                await _context.SaveChangesAsync();
-                return entity;
-            
+            await _dbSet.AddAsync(entity);
+            return entity;
         }
 
-        public virtual async Task<bool> UpdateAsync(T entity)
+        public virtual Task<bool> UpdateAsync(T entity)
         {
-           
-                _dbSet.Update(entity);
-               await _context.SaveChangesAsync();
-                return true;
-           
+            _dbSet.Update(entity);
+            return Task.FromResult(true);
         }
 
-        public virtual async Task<bool> DeleteAsync(T entity)
+        public virtual Task<bool> DeleteAsync(T entity)
         {
-           
-          
-                _dbSet.Remove(entity);
-               await _context.SaveChangesAsync();
-                return true;
-           
+            _dbSet.Remove(entity);
+            return Task.FromResult(true);
         }
 
         public virtual async Task<T?> GetByIdAsync(Guid id)
         {
-            
             return await _dbSet.FindAsync(id);
         }
     }

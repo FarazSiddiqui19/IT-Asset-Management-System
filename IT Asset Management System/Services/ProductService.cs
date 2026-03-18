@@ -13,12 +13,14 @@ namespace IT_Asset_Management_System.Services
         private readonly IProductRepository _productRepository;
         private readonly ICategoryRepository _categoryRepository;
         private readonly IAssetRepository _assetRepository;
+        private readonly IUnitOfWork _unitOfWork;
 
-        public ProductService(IProductRepository productRepository, ICategoryRepository categoryRepository, IAssetRepository assetRepository)
+        public ProductService(IProductRepository productRepository, ICategoryRepository categoryRepository, IAssetRepository assetRepository, IUnitOfWork unitOfWork)
         {
             _productRepository = productRepository;
             _categoryRepository = categoryRepository;
             _assetRepository = assetRepository;
+            _unitOfWork = unitOfWork;
         }
 
         public async Task<ProductDto> AddAsync(CreateProductDto dto)
@@ -30,9 +32,12 @@ namespace IT_Asset_Management_System.Services
             var product = dto.ToEntity();
 
             await _productRepository.AddAsync(product);
+            if (!await _unitOfWork.SaveChangesAsync())
+                throw new InternalServerException("Failed to complete the operation. Please try again.");
 
-            var full = await _productRepository.GetByIdWithDetailsAsync(product.Id);
-            return full!; // will be non-null after add
+           var Added = await _productRepository.GetByIdWithDetailsAsync(product.Id) ??
+                throw new InternalServerException("Failed to retrieve the created product. Please try again.");
+            return Added;
         }
 
         public async Task<ProductDto> GetByIdAsync(Guid id)
@@ -66,9 +71,9 @@ namespace IT_Asset_Management_System.Services
             product.Description = dto.Description?? product.Description;
             product.CategoryId = dto.CategoryId ?? product.CategoryId;
 
-            var ok = await _productRepository.UpdateAsync(product);
-            if (!ok)
-                throw new ValidationException("Failed to update product.");
+            await _productRepository.UpdateAsync(product);
+            if (!await _unitOfWork.SaveChangesAsync())
+                throw new InternalServerException("Failed to complete the operation. Please try again.");
         }
 
         public async Task DeleteAsync(Guid id)
@@ -81,9 +86,9 @@ namespace IT_Asset_Management_System.Services
             if (hasAssets)
                 throw new ValidationException("Product cannot be deleted because assets exist under it.");
 
-            var ok = await _productRepository.DeleteAsync(product);
-            if (!ok)
-                throw new ValidationException("Failed to delete product.");
+            await _productRepository.DeleteAsync(product);
+            if (!await _unitOfWork.SaveChangesAsync())
+                throw new InternalServerException("Failed to complete the operation. Please try again.");
         }
     }
 }

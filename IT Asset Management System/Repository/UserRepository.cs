@@ -29,23 +29,17 @@ namespace IT_Asset_Management_System.Repository
             return await _context.AssignmentRequests.AnyAsync(ar => ar.UserId == userId);
         }
 
-        public async Task<bool> HasTicketsAsync(Guid userId)
-        {
-            // Only consider open tickets as blocking deletion
-            return await _context.Tickets.AnyAsync(t => t.UserId == userId && t.Status == TicketStatus.Open);
-        }
-
-        public async Task<bool> HasCommentsAsync(Guid userId)
-        {
-            return await _context.Comments.AnyAsync(c => c.UserId == userId);
-        }
-
         public async Task<bool> HasActiveAssignmentsAsync(Guid userId)
         {
             return await _context.Assignments
                                     .AnyAsync(a => a.Status == AssignmentStatus.Active
                                                         && a.Request != null
                                                         && a.Request.UserId == userId);
+        }
+
+        public async Task<bool> HasInProgressTicketsAsync(Guid userId)
+        {
+            return await _context.Tickets.AnyAsync(t => t.UserId == userId && t.Status == TicketStatus.InProgress);
         }
     }
     

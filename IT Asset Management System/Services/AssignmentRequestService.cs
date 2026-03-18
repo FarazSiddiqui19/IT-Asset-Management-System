@@ -1,10 +1,10 @@
-using IT_Asset_Management_System.Services.Interfaces;
-using IT_Asset_Management_System.Repository.Interfaces;
-using IT_Asset_Management_System.DTOs.AssignmentRequest;
-using IT_Asset_Management_System.Entities;
 using IT_Asset_Management_System.Common;
 using IT_Asset_Management_System.Common.Exceptions;
+using IT_Asset_Management_System.Common.Mappers;
+using IT_Asset_Management_System.DTOs.AssignmentRequest;
 using IT_Asset_Management_System.Entities.Enums;
+using IT_Asset_Management_System.Repository.Interfaces;
+using IT_Asset_Management_System.Services.Interfaces;
 
 namespace IT_Asset_Management_System.Services
 {
@@ -13,12 +13,14 @@ namespace IT_Asset_Management_System.Services
         private readonly IAssignmentRequestRepository _assignmentRequestRepository;
         private readonly ICategoryRepository _categoryRepository;
         private readonly IUserRepository _userRepository;
+        private readonly IUnitOfWork _unitOfWork;
 
-        public AssignmentRequestService(IAssignmentRequestRepository assignmentRequestRepository, ICategoryRepository categoryRepository, IUserRepository userRepository)
+        public AssignmentRequestService(IAssignmentRequestRepository assignmentRequestRepository, ICategoryRepository categoryRepository, IUserRepository userRepository, IUnitOfWork unitOfWork)
         {
             _assignmentRequestRepository = assignmentRequestRepository;
             _categoryRepository = categoryRepository;
             _userRepository = userRepository;
+            _unitOfWork = unitOfWork;
         }
 
         public async Task<AssignmentRequestDto> AddAsync(CreateAssignmentRequestDto dto)
@@ -27,22 +29,26 @@ namespace IT_Asset_Management_System.Services
             if (category == null)
                 throw new NotFoundException("Category not found.");
 
+            var user = await _userRepository.GetByIdAsync(dto.UserId);
+            if (user == null)
+                throw new NotFoundException("User not found.");
+
             var existing = await _assignmentRequestRepository.GetPendingRequestByCategoryAndUserAsync(dto.UserId, dto.CategoryId);
             if (existing != null)
                 throw new ConflictException("You already have a pending request for this category.");
 
-            var request = new AssignmentRequest
-            {
-                UserId = dto.UserId,
-                CategoryId = dto.CategoryId,
-                Description = dto.Description,
-                Status = RequestStatus.Pending
-            };
+            var request = dto.ToEntity();
 
             await _assignmentRequestRepository.AddAsync(request);
+            if (!await _unitOfWork.SaveChangesAsync())
+                throw new InternalServerException("Failed to complete the operation. Please try again.");
 
-            var full = await _assignmentRequestRepository.GetByIdWithDetailsAsync(request.Id);
-            return full!;
+            var Added = await _assignmentRequestRepository.GetByIdWithDetailsAsync(request.Id);
+
+            if ( Added == null)
+                throw new InternalServerException("Failed to retrieve the created assignment request.");
+
+            return Added;
         }
 
         public async Task<AssignmentRequestDto> GetByIdAsync(Guid id)
@@ -87,8 +93,9 @@ namespace IT_Asset_Management_System.Services
             if (!string.IsNullOrEmpty(dto.Description))
                 request.Description = dto.Description;
 
-            var ok = await _assignmentRequestRepository.UpdateAsync(request);
-            if (!ok) throw new ValidationException("Failed to update assignment request.");
+            await _assignmentRequestRepository.UpdateAsync(request);
+            if (!await _unitOfWork.SaveChangesAsync())
+                throw new InternalServerException("Failed to complete the operation. Please try again.");
         }
 
         public async Task UpdateStatusAsync(Guid id, UpdateAssignmentRequestStatusDto dto)
@@ -112,8 +119,9 @@ namespace IT_Asset_Management_System.Services
             request.Status = RequestStatus.Rejected;
             request.ProcessedByAdminId = dto.ProcessedByAdminId;
 
-            var ok = await _assignmentRequestRepository.UpdateAsync(request);
-            if (!ok) throw new ValidationException("Failed to update assignment request.");
+            await _assignmentRequestRepository.UpdateAsync(request);
+            if (!await _unitOfWork.SaveChangesAsync())
+                throw new InternalServerException("Failed to complete the operation. Please try again.");
         }
 
         public async Task DeleteAsync(Guid id)
@@ -125,11 +133,9 @@ namespace IT_Asset_Management_System.Services
             if (request.Status == RequestStatus.Approved)
                 throw new ValidationException("Approved assignment requests can not be deleted.");
 
-            if (await _assignmentRequestRepository.HasActiveAssignmentAsync(id))
-                throw new ValidationException("Assignment request cannot be deleted because an active assignment exists for it.");
-
-            var ok = await _assignmentRequestRepository.DeleteAsync(request);
-            if (!ok) throw new ValidationException("Failed to delete assignment request.");
+            await _assignmentRequestRepository.DeleteAsync(request);
+            if (!await _unitOfWork.SaveChangesAsync())
+                throw new InternalServerException("Failed to complete the operation. Please try again.");
         }
     }
 }

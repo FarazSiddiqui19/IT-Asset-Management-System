@@ -8,8 +8,7 @@ namespace IT_Asset_Management_System.Repository.Interfaces
         Task<User?> GetByEmailAsync(string email);
         Task<User?> GetByUsernameAsync(string username);
         Task<bool> HasRequestsAsync(Guid userId);
-        Task<bool> HasTicketsAsync(Guid userId);
-        Task<bool> HasCommentsAsync(Guid userId);
         Task<bool> HasActiveAssignmentsAsync(Guid userId);
+        Task<bool> HasInProgressTicketsAsync(Guid userId);
     }
 }

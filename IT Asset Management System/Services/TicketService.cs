@@ -1,11 +1,10 @@
-using IT_Asset_Management_System.Services.Interfaces;
-using IT_Asset_Management_System.Repository.Interfaces;
-using IT_Asset_Management_System.DTOs.Ticket;
-using IT_Asset_Management_System.Entities;
 using IT_Asset_Management_System.Common;
 using IT_Asset_Management_System.Common.Exceptions;
-using IT_Asset_Management_System.Entities.Enums;
 using IT_Asset_Management_System.Common.Mappers;
+using IT_Asset_Management_System.DTOs.Ticket;
+using IT_Asset_Management_System.Entities.Enums;
+using IT_Asset_Management_System.Repository.Interfaces;
+using IT_Asset_Management_System.Services.Interfaces;
 
 namespace IT_Asset_Management_System.Services
 {
@@ -13,13 +12,13 @@ namespace IT_Asset_Management_System.Services
     {
         private readonly ITicketRepository _ticketRepository;
         private readonly IAssignmentRepository _assignmentRepository;
-     
+        private readonly IUnitOfWork _unitOfWork;
 
-        public TicketService(ITicketRepository ticketRepository, IAssignmentRepository assignmentRepository)
+        public TicketService(ITicketRepository ticketRepository, IAssignmentRepository assignmentRepository, IUnitOfWork unitOfWork)
         {
             _ticketRepository = ticketRepository;
             _assignmentRepository = assignmentRepository;
-  
+            _unitOfWork = unitOfWork;
         }
 
         public async Task<TicketDto> AddAsync(CreateTicketDto dto)
@@ -37,9 +36,13 @@ namespace IT_Asset_Management_System.Services
             var ticket = dto.ToEntity();
 
             await _ticketRepository.AddAsync(ticket);
+            if (!await _unitOfWork.SaveChangesAsync())
+                throw new InternalServerException("Failed to complete the operation. Please try again.");
 
-            var full = await _ticketRepository.GetByIdWithDetailsAsync(ticket.Id);
-            return full!;
+            var Added = await _ticketRepository.GetByIdWithDetailsAsync(ticket.Id) ??
+                throw new InternalServerException("Failed to retrieve the created ticket. Please try again.");
+
+            return Added;
         }
 
         public async Task<TicketDto> GetByIdAsync(Guid id)
@@ -94,11 +97,9 @@ namespace IT_Asset_Management_System.Services
             else
                 throw new ValidationException("Only open or in progress tickets can be updated.");
 
-
-
-            var ok = await _ticketRepository.UpdateAsync(ticket);
-            if (!ok)
-                throw new ValidationException("Failed to update ticket.");
+            await _ticketRepository.UpdateAsync(ticket);
+            if (!await _unitOfWork.SaveChangesAsync())
+                throw new InternalServerException("Failed to complete the operation. Please try again.");
         }
 
 
@@ -119,9 +120,9 @@ namespace IT_Asset_Management_System.Services
             if (dto.Description != null)
                 ticket.Description = dto.Description;
 
-            var ok = await _ticketRepository.UpdateAsync(ticket);
-            if (!ok)
-                throw new ValidationException("Failed to update ticket.");
+            await _ticketRepository.UpdateAsync(ticket);
+            if (!await _unitOfWork.SaveChangesAsync())
+                throw new InternalServerException("Failed to complete the operation. Please try again.");
         }
 
         public async Task DeleteAsync(Guid Id , Guid UserId)
@@ -135,8 +136,9 @@ namespace IT_Asset_Management_System.Services
             if (ticket.Status == TicketStatus.InProgress)
                 throw new ValidationException("In progress tickets cannot be deleted");
 
-            var ok = await _ticketRepository.DeleteAsync(ticket);
-            if (!ok) throw new ValidationException("Failed to delete ticket.");
+            await _ticketRepository.DeleteAsync(ticket);
+            if (!await _unitOfWork.SaveChangesAsync())
+                throw new InternalServerException("Failed to complete the operation. Please try again.");
         }
 
 

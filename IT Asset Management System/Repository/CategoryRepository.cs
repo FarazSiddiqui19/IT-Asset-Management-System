@@ -33,12 +33,12 @@ namespace IT_Asset_Management_System.Repository
             return await _context.AssignmentRequests.AnyAsync(ar => ar.CategoryId == categoryId);
         }
 
-        public async Task<bool> HasActiveAssignmentsAsync(Guid categoryId)
+        public async Task<bool> HasAnyAssignmentsAsync(Guid categoryId)
         {
-            // Check for active assignments where the underlying request references this category
+           
             return await _context.Assignments
                 .Include(a => a.Request)
-                .AnyAsync(a => a.Request.CategoryId == categoryId && a.Status == AssignmentStatus.Active);
+                .AnyAsync(a => a.Request.CategoryId == categoryId);
         }
     }
 }

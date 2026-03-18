@@ -10,5 +10,6 @@ namespace IT_Asset_Management_System.DTOs.User
         public string Username { get; set; } = null!;
         public UserRole Role { get; set; }
         public DateTime CreatedAt { get; set; }
+        public bool IsActive { get; set; }
     }
 }

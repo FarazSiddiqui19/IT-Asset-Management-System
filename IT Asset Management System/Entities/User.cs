@@ -12,7 +12,7 @@ namespace IT_Asset_Management_System.Entities
         public required string PasswordHash { get; set; } 
         public UserRole Role { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-   
+        public bool IsActive { get; set; } = true;
 
         // Navigation properties
         public virtual List<AssignmentRequest> AssignmentRequests { get; set; } = new List<AssignmentRequest>();

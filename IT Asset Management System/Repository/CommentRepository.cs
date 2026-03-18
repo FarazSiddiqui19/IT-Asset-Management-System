@@ -8,6 +8,7 @@ using IT_Asset_Management_System.Entities;
 using IT_Asset_Management_System.Repository.Interfaces;
 using IT_Asset_Management_System.DTOs.Comment;
 using IT_Asset_Management_System.Common.Mappers;
+using IT_Asset_Management_System.Common;
 
 namespace IT_Asset_Management_System.Repository
 {
@@ -25,7 +26,7 @@ namespace IT_Asset_Management_System.Repository
                 .FirstOrDefaultAsync();
         }
 
-        public async Task<List<CommentDto>> GetAllAsync(CommentFilter filter)
+        public async Task<PagedResult<CommentDto>> GetAllAsync(CommentFilter filter)
         {
             IQueryable<Comment> query = _dbSet.Include(c => c.User);
 
@@ -35,10 +36,22 @@ namespace IT_Asset_Management_System.Repository
             if (filter.AssignmentRequestId.HasValue)
                 query = query.Where(c => c.AssignmentRequestId == filter.AssignmentRequestId.Value);
 
-            return await query
+            var total = await query.CountAsync();
+
+            
+
+            var items = await query
                 .OrderBy(c => c.CreatedAt)
+                .Skip((filter.PageNumber - 1) * filter.PageSize)
+                .Take(filter.PageSize)
                 .Select(c => c.ToDto())
                 .ToListAsync();
+
+            return new IT_Asset_Management_System.Common.PagedResult<CommentDto>
+            {
+                Items = items,
+                TotalCount = total
+            };
         }
     }
 }

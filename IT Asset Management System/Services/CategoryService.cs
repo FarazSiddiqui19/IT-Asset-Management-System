@@ -13,11 +13,13 @@ namespace IT_Asset_Management_System.Services
     {
         private readonly ICategoryRepository _categoryRepository;
         private readonly IProductRepository _productRepository;
+        private readonly IUnitOfWork _unitOfWork;
 
-        public CategoryService(ICategoryRepository categoryRepository, IProductRepository productRepository)
+        public CategoryService(ICategoryRepository categoryRepository, IProductRepository productRepository, IUnitOfWork unitOfWork)
         {
             _categoryRepository = categoryRepository;
             _productRepository = productRepository;
+            _unitOfWork = unitOfWork;
         }
 
         public async Task<CategoryDto> AddAsync(CreateCategoryDto dto)
@@ -26,13 +28,17 @@ namespace IT_Asset_Management_System.Services
             if (existing != null)
                 throw new ConflictException("Category with this name already exists.");
 
-            var category = new Category
-            {
-                Name = dto.Name
-            };
+            var category = dto.ToEntity();
 
             await _categoryRepository.AddAsync(category);
-            return category.ToDto();
+            if (!await _unitOfWork.SaveChangesAsync())
+                throw new InternalServerException("Failed to complete the operation. Please try again.");
+            var Added = await _categoryRepository.GetByIdAsync(category.Id);
+
+            if (Added == null)
+                throw new InternalServerException("Failed to retrieve the created category. Please try again.");
+
+            return Added.ToDto();
         }
 
         public async Task<CategoryDto> GetByIdAsync(Guid id)
@@ -62,9 +68,9 @@ namespace IT_Asset_Management_System.Services
 
             category.Name = dto.Name;
 
-            var ok = await _categoryRepository.UpdateAsync(category);
-            if (!ok)
-                throw new ValidationException("Failed to update category.");
+            await _categoryRepository.UpdateAsync(category);
+            if (!await _unitOfWork.SaveChangesAsync())
+                throw new InternalServerException("Failed to complete the operation. Please try again.");
         }
 
         public async Task DeleteAsync(Guid id)
@@ -75,14 +81,12 @@ namespace IT_Asset_Management_System.Services
             var hasProducts = await _productRepository.HasProductsAsync(id);
             if (hasProducts)
                 throw new ValidationException("Category cannot be deleted because products exist under it.");
-            if (await _categoryRepository.HasActiveAssignmentsAsync(id))
-                throw new ValidationException("Category cannot be deleted because active assignments exist under it.");
+            if (await _categoryRepository.HasAnyAssignmentsAsync(id))
+                throw new ValidationException("Category cannot be deleted because assignments exist under it.");
 
-        
-
-            var ok = await _categoryRepository.DeleteAsync(category);
-            if (!ok)
-                throw new ValidationException("Failed to delete category.");
+            await _categoryRepository.DeleteAsync(category);
+            if (!await _unitOfWork.SaveChangesAsync())
+                throw new InternalServerException("Failed to complete the operation. Please try again.");
         }
     }
 }

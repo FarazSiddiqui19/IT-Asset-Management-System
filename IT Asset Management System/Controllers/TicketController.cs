@@ -24,10 +24,11 @@ namespace IT_Asset_Management_System.Controllers
         [HttpPost("List")]
         public async Task<IActionResult> GetAll([FromBody] TicketFilter filter)
         {
+
+
             if (User.IsInRole("Employee"))
                 filter.UserId = GetRequestingUserId();
-            else
-                filter.OpenOrAssignedToUserId = GetRequestingUserId();
+           
 
             var tickets = await _ticketService.GetAllAsync(filter);
             return Ok(tickets);

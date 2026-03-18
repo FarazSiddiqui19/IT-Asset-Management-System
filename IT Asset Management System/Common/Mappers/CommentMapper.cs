@@ -26,5 +26,20 @@ namespace IT_Asset_Management_System.Common.Mappers
                 CreatedAt = comment.CreatedAt
             };
         }
+
+        public static Comment ToEntity(this CreateCommentDto dto)
+        {
+            if (dto == null) throw new ArgumentNullException(nameof(dto));
+            
+            return new Comment
+            {
+                TicketId = dto.TicketId,
+                AssignmentRequestId = dto.AssignmentRequestId,
+                Type = dto.CommentType,
+                UserId = dto.UserId,
+                Content = dto.Content,
+                CreatedAt = DateTime.UtcNow
+            };
+        }
     }
 }

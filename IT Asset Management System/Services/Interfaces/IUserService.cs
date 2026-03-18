@@ -9,7 +9,7 @@ namespace IT_Asset_Management_System.Services.Interfaces
         Task<UserDto> AddUserAsync(CreateUserDto dto);
         Task<UserDto> GetByIdAsync(Guid id);
         Task UpdateAsync(Guid id, UpdateUserDto dto);
-        Task DeleteAsync(Guid id);
+        Task DeactivateAsync(Guid id);
        
     }
 }

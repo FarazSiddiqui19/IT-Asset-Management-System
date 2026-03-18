@@ -28,28 +28,32 @@ namespace IT_Asset_Management_System.Repository
                     .ThenInclude(a => a.Asset)
                         .ThenInclude(asst => asst.Product);
 
-            if (filter.Status.HasValue)
-                query = query.Where(t => t.Status == filter.Status.Value);
-
             if (filter.UserId.HasValue)
                 query = query.Where(t => t.UserId == filter.UserId.Value);
 
-            if (filter.AssignedTo.HasValue)
-                query = query.Where(t => t.AssignedToUserId == filter.AssignedTo.Value);
+            if (filter.Status.HasValue)
+            {
+                query = query.Where(t => t.Status == filter.Status.Value);
 
-            if (filter.OpenOrAssignedToUserId.HasValue)
-                query = query.Where(t =>
-                    (t.Status == TicketStatus.Open && t.AssignedToUserId == null) ||
-                    t.AssignedToUserId == filter.OpenOrAssignedToUserId.Value);
+               
+                if (filter.Status != TicketStatus.Open && filter.AssignedTo.HasValue)
+                    query = query.Where(t => t.AssignedToUserId == filter.AssignedTo.Value);
+            }
+            else
+            {
+                
+                if (filter.AssignedTo.HasValue)
+                    query = query.Where(t => t.AssignedToUserId == filter.AssignedTo.Value);
+            }
 
             bool asc = filter.SortOrder == SortOrder.Ascending;
 
             switch (filter.SortBy)
             {
-                case TicketSortBy.CreatedAt:
+                case TicketSortBy.Status:
                     query = filter.SortOrder == SortOrder.Ascending
-                        ? query.OrderBy(t => t.CreatedAt)
-                        : query.OrderByDescending(t => t.CreatedAt);
+                        ? query.OrderBy(t => t.Status)
+                        : query.OrderByDescending(t => t.Status);
                     break;
                 default:
                     query = filter.SortOrder == SortOrder.Ascending

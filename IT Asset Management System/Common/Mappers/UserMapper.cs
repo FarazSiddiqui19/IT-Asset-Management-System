@@ -13,6 +13,7 @@ namespace IT_Asset_Management_System.Common.Mappers
                 Email = user.Email,
                 Username = user.Username,
                 Role = user.Role,
+                IsActive = user.IsActive,
                 CreatedAt = user.CreatedAt
             };
         }

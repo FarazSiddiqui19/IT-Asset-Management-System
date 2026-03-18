@@ -1,10 +1,11 @@
-using IT_Asset_Management_System.Services.Interfaces;
-using IT_Asset_Management_System.Repository.Interfaces;
-using IT_Asset_Management_System.DTOs.Assignment;
-using IT_Asset_Management_System.Entities;
 using IT_Asset_Management_System.Common;
 using IT_Asset_Management_System.Common.Exceptions;
+using IT_Asset_Management_System.Common.Mappers;
+using IT_Asset_Management_System.DTOs.Assignment;
+using IT_Asset_Management_System.Entities;
 using IT_Asset_Management_System.Entities.Enums;
+using IT_Asset_Management_System.Repository.Interfaces;
+using IT_Asset_Management_System.Services.Interfaces;
 
 namespace IT_Asset_Management_System.Services
 {
@@ -14,71 +15,73 @@ namespace IT_Asset_Management_System.Services
         private readonly IAssignmentRequestRepository _assignmentRequestRepository;
         private readonly IAssetRepository _assetRepository;
         private readonly IUserRepository _userRepository;
+        private readonly IProductRepository _productRepository;
+        private readonly IUnitOfWork _unitOfWork;
 
         public AssignmentService(
             IAssignmentRepository assignmentRepository,
             IAssignmentRequestRepository assignmentRequestRepository,
             IAssetRepository assetRepository,
-            IUserRepository userRepository)
+            IUserRepository userRepository,
+            IProductRepository productRepository,
+            IUnitOfWork unitOfWork)
         {
             _assignmentRepository = assignmentRepository;
             _assignmentRequestRepository = assignmentRequestRepository;
             _assetRepository = assetRepository;
             _userRepository = userRepository;
+            _productRepository = productRepository;
+            _unitOfWork = unitOfWork;
         }
 
         public async Task<AssignmentDto> AddAsync(CreateAssignmentDto dto)
         {
             // Validate user
             var user = await _userRepository.GetByIdAsync(dto.UserId);
-            if (user == null)
-                throw new NotFoundException("User not found.");
+            if (user == null) throw new NotFoundException("User not found.");
 
             // Validate asset
             var asset = await _assetRepository.GetByIdAsync(dto.AssetId);
-            if (asset == null)
-                throw new NotFoundException("Asset not found.");
-
+            if (asset == null) throw new NotFoundException("Asset not found.");
             if (asset.Status != AssetStatus.Available)
                 throw new ValidationException("Asset is not available for assignment.");
 
             // Validate request
             var request = await _assignmentRequestRepository.GetByIdAsync(dto.RequestId);
-            if (request == null)
-                throw new NotFoundException("Assignment request not found.");
-
+            if (request == null) throw new NotFoundException("Assignment request not found.");
             if (request.Status != RequestStatus.Pending)
                 throw new ValidationException("Assignment request is not pending.");
-
             if (request.UserId != dto.UserId)
                 throw new ValidationException("Assignment request does not belong to the specified user.");
 
-            // Check active assignment
-            var active = await _assignmentRepository.GetActiveAssignmentByAssetIdAsync(dto.AssetId);
-            if (active != null)
-                throw new ValidationException("Asset already has an active assignment.");
+            // Validate category match
+            var product = await _productRepository.GetByIdAsync(asset.ProductId);
+            if (product == null) throw new NotFoundException("Product not found.");
+            if (product.CategoryId != request.CategoryId)
+                throw new ValidationException("Asset category does not match the requested category.");
 
-            var assignment = new Assignment
-            {
-                RequestId = dto.RequestId,
-                AssetId = dto.AssetId,
-                Status = AssignmentStatus.Active,
-                AssignedDate = DateTime.UtcNow
-            };
-
+            // Create assignment
+            var assignment = dto.ToEntity();
             await _assignmentRepository.AddAsync(assignment);
 
-            // Update asset status to Assigned
+            // Update asset status
             asset.Status = AssetStatus.Assigned;
             await _assetRepository.UpdateAsync(asset);
 
-            // Update request status to Approved and record which admin processed it
+            // Update request status
             request.Status = RequestStatus.Approved;
             request.ProcessedByAdminId = dto.ProcessedByAdminId;
             await _assignmentRequestRepository.UpdateAsync(request);
 
-            var full = await _assignmentRepository.GetByIdWithDetailsAsync(assignment.Id);
-            return full!;
+            if (!await _unitOfWork.SaveChangesAsync())
+                throw new InternalServerException("Failed to complete the operation. Please try again.");
+
+            var Added = await _assignmentRepository.GetByIdWithDetailsAsync(assignment.Id);
+
+            if(Added == null)
+                throw new InternalServerException("Failed to retrieve the created assignment. Please try again.");
+
+            return Added;
         }
 
         public async Task<AssignmentDto> GetByIdAsync(Guid id)
@@ -117,9 +120,10 @@ namespace IT_Asset_Management_System.Services
             asset.Status = AssetStatus.Available;
             await _assetRepository.UpdateAsync(asset);
 
-            var ok = await _assignmentRepository.UpdateAsync(assignment);
-            if (!ok)
-                throw new ValidationException("Failed to update assignment.");
+            await _assignmentRepository.UpdateAsync(assignment);
+
+            if (!await _unitOfWork.SaveChangesAsync())
+                throw new InternalServerException("Failed to complete the operation. Please try again.");
         }
 
         public async Task DeleteAsync(Guid id)
@@ -131,9 +135,10 @@ namespace IT_Asset_Management_System.Services
             if (assignment.Status != AssignmentStatus.Returned)
                 throw new ValidationException("Only returned assignments can be deleted.");
 
-            var ok = await _assignmentRepository.DeleteAsync(assignment);
-            if (!ok) throw new ValidationException("Failed to delete assignment.");
-            
+            await _assignmentRepository.DeleteAsync(assignment);
+
+            if (!await _unitOfWork.SaveChangesAsync())
+                throw new InternalServerException("Failed to complete the operation. Please try again.");
         }
 
       

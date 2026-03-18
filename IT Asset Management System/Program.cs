@@ -1,6 +1,7 @@
 using IT_Asset_Management_System.Common.Extensions; // Service extension methods
 using IT_Asset_Management_System.Data;
 using IT_Asset_Management_System.Data.Configurations; // To ensure configurations are discoverable
+using IT_Asset_Management_System.Middleware;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 
@@ -42,13 +43,17 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddDbContext<dbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Register Unit of Work
+
+
 // Register repositories
 builder.Services.AddRepositories();
 // JWT and auth services
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddServices();
 
-
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
 
 
 var app = builder.Build();
@@ -61,6 +66,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseExceptionHandler();
 app.UseAuthentication();
 app.UseAuthorization();
 

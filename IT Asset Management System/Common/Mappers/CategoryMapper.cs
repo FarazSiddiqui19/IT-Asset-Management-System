@@ -13,5 +13,13 @@ namespace IT_Asset_Management_System.Common.Mappers
                 Name = category.Name
             };
         }
+
+        public static Category ToEntity(this CreateCategoryDto dto)
+        {
+            return new Category
+            {
+                Name = dto.Name
+            };
+        }
     }
 }
